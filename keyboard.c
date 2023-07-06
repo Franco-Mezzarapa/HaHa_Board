@@ -1,6 +1,8 @@
 #include "Keyboard.h"
 #include <util/delay.h>
 #include <avr/sleep.h>
+
+
 /** Buffer to hold the previously generated Keyboard HID report, for comparison purposes inside the HID class driver. */
 static uint8_t PrevKeyboardHIDReportBuffer[sizeof(USB_KeyboardReport_Data_t)];
 
@@ -9,40 +11,58 @@ static uint8_t PrevKeyboardHIDReportBuffer[sizeof(USB_KeyboardReport_Data_t)];
  *  within a device can be differentiated from one another.
  */
 USB_ClassInfo_HID_Device_t Keyboard_HID_Interface =
+{
+	.Config =
 	{
-		.Config =
-			{
-				.InterfaceNumber              = INTERFACE_ID_Keyboard,
-				.ReportINEndpoint             =
-					{
-						.Address              = KEYBOARD_EPADDR,
-						.Size                 = KEYBOARD_EPSIZE,
-						.Banks                = 1,
-					},
-				.PrevReportINBuffer           = PrevKeyboardHIDReportBuffer,
-				.PrevReportINBufferSize       = sizeof(PrevKeyboardHIDReportBuffer),
-			},
-	};
+		.InterfaceNumber              = INTERFACE_ID_Keyboard,
+		.ReportINEndpoint             =
+		{
+			.Address              = KEYBOARD_EPADDR,
+			.Size                 = KEYBOARD_EPSIZE,
+			.Banks                = 1,
+		},
+		.PrevReportINBuffer           = PrevKeyboardHIDReportBuffer,
+		.PrevReportINBufferSize       = sizeof(PrevKeyboardHIDReportBuffer),
+	},
+};
 
 //Open powershell.
 //initialize this array with NULL. We're going to use a terminator to break loops.
 // This is going to prevent the array from going on longer than we want.
 uint8_t scanCodes[100] = {NULL};
+uint8_t modifierKeys[100] = {NULL};
+	
 int executeKeys(void){
+	
 	//Invoke the callback function.
 	// Create and populate HID report data
 	// Manually invoke the callback function
 
-	scanCodes[0] = HID_KEYBOARD_SC_F;
-	scanCodes[1] = HID_KEYBOARD_SC_G;
-	
 	uint8_t reportID = 0;
 	uint8_t reportType = HID_REPORT_ITEM_In;
 	uint8_t reportData[8]; // Example report data
 	uint16_t reportSize = sizeof(reportData);
+	
+	//Send HID_report for windows search menu
+	scanCodes[0] = HID_KEYBOARD_SC_R;
+	modifierKeys[0] = HID_KEYBOARD_MODIFIER_LEFTGUI;
 	CALLBACK_HID_Device_CreateHIDReport(NULL,reportID,reportType,reportData,reportSize);
+	  _delay_ms(5000); // Delay between keypresses
+	
+	//Send CMD :)
+	modifierKeys[0] = NULL;
+	scanCodes[0] = HID_KEYBOARD_SC_C;
+	scanCodes[1] = HID_KEYBOARD_SC_M;
+	scanCodes[2] = HID_KEYBOARD_SC_D;
+	scanCodes[3] = HID_KEYBOARD_SC_ENTER;
+	CALLBACK_HID_Device_CreateHIDReport(NULL,reportID,reportType,reportData,reportSize);
+	 _delay_ms(5000); // Delay between keypresses
 	
 	
+	int scanLenght = sizeof(scanCodes)/sizeof(scanCodes[0]);
+	for(int i = 0; i >scanLenght;i++){
+		scanCodes[i] = NULL;
+	}
 
 	
 
@@ -64,7 +84,7 @@ int main(void)
 		
 		//Executes the keystrokes sequentially!!
 		executeKeys();
-
+		
 
 
 	for (;;)
@@ -142,21 +162,21 @@ bool CALLBACK_HID_Device_CreateHIDReport(USB_ClassInfo_HID_Device_t* const HIDIn
 {
 	USB_KeyboardReport_Data_t* KeyboardReport = (USB_KeyboardReport_Data_t*)ReportData;
     uint8_t numKeyCodes = sizeof(scanCodes) / sizeof(scanCodes[0]);
-
-    // Populate the KeyboardReport with the key codes from the array
-	//This is appears on screen AFTER the function is RUN! Delays will therefore appear before the keys do.
-	//int i = 0;
-	//    KeyboardReport->KeyCode[i] = scanCodes[i];    // Send the 'A' key
-	//i = 1;	
-	//	KeyboardReport ->KeyCode[i] = HID_KEYBOARD_SC_M;
-	
+	int modCounter = 0;
 	int nullCounter = 0;
-	while (scanCodes[nullCounter] != NULL)
-	{
-		    KeyboardReport->KeyCode[nullCounter] = scanCodes[nullCounter];	
-			nullCounter++;
-	}
 	
+		while (modifierKeys[modCounter] != NULL)
+		{
+			KeyboardReport->Modifier = modifierKeys[modCounter];
+			modCounter++;
+		}
+		
+		while (scanCodes[nullCounter] != NULL)
+		{
+			KeyboardReport->KeyCode[nullCounter] = scanCodes[nullCounter];
+			nullCounter++;
+		}
+			
 	*ReportSize = sizeof(USB_KeyboardReport_Data_t);
 	return true;
 }
@@ -176,3 +196,6 @@ void CALLBACK_HID_Device_ProcessHIDReport(USB_ClassInfo_HID_Device_t* const HIDI
                                           const uint16_t ReportSize)
 {
 }
+
+
+
