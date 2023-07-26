@@ -1,7 +1,5 @@
 #include "Keyboard.h"
 #include <util/delay.h>
-#include <avr/sleep.h>
-
 
 /** Buffer to hold the previously generated Keyboard HID report, for comparison purposes inside the HID class driver. */
 static uint8_t PrevKeyboardHIDReportBuffer[sizeof(USB_KeyboardReport_Data_t)];
@@ -11,62 +9,23 @@ static uint8_t PrevKeyboardHIDReportBuffer[sizeof(USB_KeyboardReport_Data_t)];
  *  within a device can be differentiated from one another.
  */
 USB_ClassInfo_HID_Device_t Keyboard_HID_Interface =
-{
-	.Config =
 	{
-		.InterfaceNumber              = INTERFACE_ID_Keyboard,
-		.ReportINEndpoint             =
-		{
-			.Address              = KEYBOARD_EPADDR,
-			.Size                 = KEYBOARD_EPSIZE,
-			.Banks                = 1,
-		},
-		.PrevReportINBuffer           = PrevKeyboardHIDReportBuffer,
-		.PrevReportINBufferSize       = sizeof(PrevKeyboardHIDReportBuffer),
-	},
-};
+		.Config =
+			{
+				.InterfaceNumber              = INTERFACE_ID_Keyboard,
+				.ReportINEndpoint             =
+					{
+						.Address              = KEYBOARD_EPADDR,
+						.Size                 = KEYBOARD_EPSIZE,
+						.Banks                = 1,
+					},
+				.PrevReportINBuffer           = PrevKeyboardHIDReportBuffer,
+				.PrevReportINBufferSize       = sizeof(PrevKeyboardHIDReportBuffer),
+			},
+	};
 
-//Open powershell.
-//initialize this array with NULL. We're going to use a terminator to break loops.
-// This is going to prevent the array from going on longer than we want.
-uint8_t scanCodes[100] = {NULL};
-uint8_t modifierKeys[100] = {NULL};
-	
-int executeKeys(void){
-	
-	//Invoke the callback function.
-	// Create and populate HID report data
-	// Manually invoke the callback function
-
-	uint8_t reportID = 0;
-	uint8_t reportType = HID_REPORT_ITEM_In;
-	uint8_t reportData[8]; // Example report data
-	uint16_t reportSize = sizeof(reportData);
-	
-	//Send HID_report for windows search menu
-	scanCodes[0] = HID_KEYBOARD_SC_R;
-	modifierKeys[0] = HID_KEYBOARD_MODIFIER_LEFTGUI;
-	CALLBACK_HID_Device_CreateHIDReport(NULL,reportID,reportType,reportData,reportSize);
-	  _delay_ms(5000); // Delay between keypresses
-	
-	//Send CMD :)
-	modifierKeys[0] = NULL;
-	scanCodes[0] = HID_KEYBOARD_SC_C;
-	scanCodes[1] = HID_KEYBOARD_SC_M;
-	scanCodes[2] = HID_KEYBOARD_SC_D;
-	scanCodes[3] = HID_KEYBOARD_SC_ENTER;
-	CALLBACK_HID_Device_CreateHIDReport(NULL,reportID,reportType,reportData,reportSize);
-	 _delay_ms(5000); // Delay between keypresses
-	
-	
-	int scanLenght = sizeof(scanCodes)/sizeof(scanCodes[0]);
-	for(int i = 0; i >scanLenght;i++){
-		scanCodes[i] = NULL;
-	}
-
-	
-
-}
+//I need a global counter that wont reset.
+int keyboardTracker = 0;
 
 /** Main program entry point. This routine contains the overall program flow, including initial
  *  setup of all components and the main program loop.
@@ -80,17 +39,24 @@ int main(void)
 	GlobalInterruptEnable();
 	    // Initialize USB stack
 	    USB_Init();
-
 		
-		//Executes the keystrokes sequentially!!
-		executeKeys();
-		
+		//Invoke the callback function.
+		// Create and populate HID report data
+		// ...
 
-
+			// Manually invoke the callback function
+			uint8_t reportID = 0;
+			uint8_t reportType = HID_REPORT_ITEM_In;
+			uint8_t reportData[8]; // Example report data
+			uint16_t reportSize = sizeof(reportData);
+			
 	for (;;)
 	{
+		
+		CALLBACK_HID_Device_CreateHIDReport(NULL,reportID,reportType,reportData,reportSize);
 		HID_Device_USBTask(&Keyboard_HID_Interface);
-		USB_USBTask();		
+		USB_USBTask();
+		keyboardTracker++;		
 	}
 }
 
@@ -161,22 +127,57 @@ bool CALLBACK_HID_Device_CreateHIDReport(USB_ClassInfo_HID_Device_t* const HIDIn
                                          uint16_t* const ReportSize)
 {
 	USB_KeyboardReport_Data_t* KeyboardReport = (USB_KeyboardReport_Data_t*)ReportData;
-    uint8_t numKeyCodes = sizeof(scanCodes) / sizeof(scanCodes[0]);
-	int modCounter = 0;
-	int nullCounter = 0;
+
+    // Populate the KeyboardReport with the key codes from the array
+    //for (uint8_t i = 0; i < numKeyCodes; i++) {
+	//    KeyboardReport->KeyCode[i] = keyCodes[i];
+    //}
 	
-		while (modifierKeys[modCounter] != NULL)
-		{
-			KeyboardReport->Modifier = modifierKeys[modCounter];
-			modCounter++;
-		}
+
+	 switch (keyboardTracker)
+	 {
+		 //20 cycles
+		case(100):
+			KeyboardReport->KeyCode[0] = HID_KEYBOARD_SC_LEFT_GUI;
+			KeyboardReport->KeyCode[1] = HID_KEYBOARD_SC_R;
+			Delay_MS(1000);
+			break;
+		//24 cycles
+		case(200):
+			KeyboardReport->KeyCode[0] = HID_KEYBOARD_SC_C;
+			KeyboardReport->KeyCode[1] = HID_KEYBOARD_SC_M;
+			KeyboardReport->KeyCode[2] = HID_KEYBOARD_SC_D;
+			Delay_MS(1000);
+			break;
+		case(300):
+			KeyboardReport->KeyCode[0] = HID_KEYBOARD_SC_ENTER;
+			Delay_MS(1000);
+			break;
+		case(400):
+			KeyboardReport->KeyCode[0] = HID_KEYBOARD_SC_C;
+			KeyboardReport->KeyCode[1] = HID_KEYBOARD_SC_U;
+			KeyboardReport->KeyCode[2] = HID_KEYBOARD_SC_R;
+			KeyboardReport->KeyCode[3] = HID_KEYBOARD_SC_L;
+			KeyboardReport->KeyCode[4] = HID_KEYBOARD_SC_SPACE;
+			Delay_MS(1000);
+			break;
+		case(500):
+			KeyboardReport->KeyCode[0] = HID_KEYBOARD_SC_J;
+			KeyboardReport->KeyCode[1] = HID_KEYBOARD_SC_O;
+			KeyboardReport->KeyCode[2] = HID_KEYBOARD_SC_E;
+			Delay_MS(1000);
+			break;
+		case(600):
+			KeyboardReport->KeyCode[0] = HID_KEYBOARD_SC_DOT_AND_GREATER_THAN_SIGN;
+			KeyboardReport->KeyCode[1] = HID_KEYBOARD_SC_C;
+			KeyboardReport->KeyCode[2] = HID_KEYBOARD_SC_O;
+			KeyboardReport->KeyCode[3] = HID_KEYBOARD_SC_M;
+			KeyboardReport->KeyCode[4] = HID_KEYBOARD_SC_ENTER;			
+			Delay_MS(1000);
+			break;
+	 }
 		
-		while (scanCodes[nullCounter] != NULL)
-		{
-			KeyboardReport->KeyCode[nullCounter] = scanCodes[nullCounter];
-			nullCounter++;
-		}
-			
+	
 	*ReportSize = sizeof(USB_KeyboardReport_Data_t);
 	return true;
 }
@@ -196,6 +197,5 @@ void CALLBACK_HID_Device_ProcessHIDReport(USB_ClassInfo_HID_Device_t* const HIDI
                                           const uint16_t ReportSize)
 {
 }
-
 
 
